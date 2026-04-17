@@ -1,0 +1,123 @@
+package ui
+
+import (
+    tea "charm.land/bubbletea/v2"
+    "charm.land/lipgloss/v2"
+    "github.com/raaican/raihand/internal/bot"
+)
+
+type tab int
+
+const (
+    tabDashboard tab = iota
+    tabLogs
+    tabGuilds
+    tabActions
+)
+
+var tabNames = []string{"Dashboard", "Logs", "Guilds", "Actions"}
+
+type RootModel struct {
+    bot       *bot.Bot
+    activeTab tab
+    width     int
+    height    int
+    dashboard DashboardModel
+    logView   LogViewModel
+    guilds    GuildsModel
+    actions   ActionsModel
+}
+
+func NewRootModel(b *bot.Bot) RootModel {
+    return RootModel{
+        bot:       b,
+        activeTab: tabDashboard,
+        dashboard: NewDashboardModel(b),
+        logView:   NewLogViewModel(b),
+        guilds:    NewGuildsModel(b),
+        actions:   NewActionsModel(b),
+    }
+}
+
+func (m RootModel) Init() tea.Cmd {
+    return tea.Batch(
+        m.dashboard.Init(),
+        m.logView.Init(),
+        m.guilds.Init(),
+        m.actions.Init(),
+    )
+}
+
+func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        m.width = msg.Width
+        m.height = msg.Height
+        inner := m.height - 4
+        m.dashboard = m.dashboard.SetSize(m.width, inner)
+        m.logView   = m.logView.SetSize(m.width, inner)
+        m.guilds    = m.guilds.SetSize(m.width, inner)
+        m.actions   = m.actions.SetSize(m.width, inner)
+
+    case tea.KeyPressMsg: // v2: KeyPressMsg not KeyMsg
+        switch msg.String() {
+        case "ctrl+c", "q":
+            return m, tea.Quit
+        case "1":
+            m.activeTab = tabDashboard
+        case "2":
+            m.activeTab = tabLogs
+        case "3":
+            m.activeTab = tabGuilds
+        case "4":
+            m.activeTab = tabActions
+        case "tab":
+            m.activeTab = (m.activeTab + 1) % tab(len(tabNames))
+        }
+    }
+
+    var cmd tea.Cmd
+    switch m.activeTab {
+    case tabDashboard:
+        m.dashboard, cmd = m.dashboard.Update(msg)
+    case tabLogs:
+        m.logView, cmd = m.logView.Update(msg)
+    case tabGuilds:
+        m.guilds, cmd = m.guilds.Update(msg)
+    case tabActions:
+        m.actions, cmd = m.actions.Update(msg)
+    }
+    return m, cmd
+}
+
+func (m RootModel) View() tea.View {
+    tabs    := m.renderTabs()
+    var content string
+    switch m.activeTab {
+    case tabDashboard:
+        content = m.dashboard.View()
+    case tabLogs:
+        content = m.logView.View()
+    case tabGuilds:
+        content = m.guilds.View()
+    case tabActions:
+        content = m.actions.View()
+    }
+    help := styleHelp.Render("tab: next  1-4: jump  q: quit")
+    out  := lipgloss.JoinVertical(lipgloss.Left, tabs, content, help)
+    v    := tea.NewView(out)
+    v.AltScreen = true
+    return v
+}
+
+func (m RootModel) renderTabs() string {
+    var tabs []string
+    for i, name := range tabNames {
+        if tab(i) == m.activeTab {
+            tabs = append(tabs, styleTabActive.Render(name))
+        } else {
+            tabs = append(tabs, styleTabInactive.Render(name))
+        }
+    }
+    return lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
+}

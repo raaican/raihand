@@ -65,8 +65,6 @@ func makeInputs() []textinput.Model {
     for i, ph := range placeholders {
         t := textinput.New()
         t.Placeholder = ph
-        // v2: use CharLimit or width via SetWidth if available,
-        // otherwise just set CharLimit as a proxy
         t.CharLimit = 100
         inputs[i] = t
     }

@@ -1,12 +1,16 @@
 package ui
 
 import (
+	"time"
+
     tea "charm.land/bubbletea/v2"
     "charm.land/lipgloss/v2"
     "github.com/raaican/raihand/internal/bot"
 )
 
 type tab int
+
+type globalTickMsg time.Time
 
 const (
     tabDashboard tab = iota
@@ -39,17 +43,29 @@ func NewRootModel(b *bot.Bot) RootModel {
     }
 }
 
+func globalTickCmd() tea.Cmd {
+	return tea.Every(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return globalTickMsg(t)
+	})
+}
+
 func (m RootModel) Init() tea.Cmd {
     return tea.Batch(
         m.dashboard.Init(),
         m.logView.Init(),
         m.guilds.Init(),
         m.actions.Init(),
+		globalTickCmd(),
     )
 }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
     switch msg := msg.(type) {
+	case globalTickMsg:
+		return m, globalTickCmd()
+
     case tea.WindowSizeMsg:
         m.width = msg.Width
         m.height = msg.Height
@@ -59,7 +75,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         m.guilds    = m.guilds.SetSize(m.width, inner)
         m.actions   = m.actions.SetSize(m.width, inner)
 
-    case tea.KeyPressMsg: // v2: KeyPressMsg not KeyMsg
+    case tea.KeyPressMsg:
         switch msg.String() {
         case "ctrl+c", "q":
             return m, tea.Quit
@@ -76,18 +92,22 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         }
     }
 
-    var cmd tea.Cmd
+	var logCmd tea.Cmd
+	m.logView, logCmd = m.logView.Update(msg)
+	cmds = append(cmds, logCmd)
+
+    var tabCmd tea.Cmd
     switch m.activeTab {
     case tabDashboard:
-        m.dashboard, cmd = m.dashboard.Update(msg)
-    case tabLogs:
-        m.logView, cmd = m.logView.Update(msg)
+        m.dashboard, tabCmd = m.dashboard.Update(msg)
     case tabGuilds:
-        m.guilds, cmd = m.guilds.Update(msg)
+        m.guilds, tabCmd = m.guilds.Update(msg)
     case tabActions:
-        m.actions, cmd = m.actions.Update(msg)
+        m.actions, tabCmd = m.actions.Update(msg)
     }
-    return m, cmd
+	cmds = append(cmds, tabCmd)
+
+    return m, tea.Batch(cmds...)
 }
 
 func (m RootModel) View() tea.View {

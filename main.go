@@ -22,6 +22,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	b.RegisterVoiceMonitor(bot.VoiceConfig{
+		ModChannelID:    os.Getenv("MOD_CHANNEL_ID"),
+		CreateChannelID: os.Getenv("CREATE_CHANNEL_ID"),
+		ExcludedUsers:   map[string]bool{},
+	})
+
 	if err := b.Connect(); err != nil {
 		fmt.Fprintf(os.Stderr, "bot connect error: %v\n", err)
 		os.Exit(1)

@@ -22,13 +22,14 @@ type LogEntry struct {
 }
 
 type Bot struct {
-	mu      sync.RWMutex
-	session *discordgo.Session
-	status  Status
-	logs    []LogEntry
-	guilds  []*discordgo.Guild
-	token   string
-	logSubs []chan LogEntry
+	mu       sync.RWMutex
+	session  *discordgo.Session
+	status   Status
+	logs     []LogEntry
+	guilds   []*discordgo.Guild
+	token    string
+	logSubs  []chan LogEntry
+	voiceCfg VoiceConfig
 }
 
 func New (token string) (*Bot, error) {
